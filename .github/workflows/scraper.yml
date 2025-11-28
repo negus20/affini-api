@@ -1,0 +1,37 @@
+name: Run Affini scraper
+
+on:
+  # Run every 12 hours (00:00 and 12:00 UTC)
+  schedule:
+    - cron: "0 */12 * * *"
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright browsers (Chromium)
+        run: |
+          python -m playwright install --with-deps chromium
+
+      - name: Run scraper
+        env:
+          MARKET_API_URL: ${{ secrets.MARKET_API_URL }}
+          MARKET_API_TOKEN: ${{ secrets.MARKET_API_TOKEN }}
+        run: |
+          python market_pipeline.py
