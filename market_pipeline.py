@@ -479,8 +479,9 @@ def main():
     cc_scraper = CollectingCarsScraper()
 
     rows = load_vehicles_from_csv("vehicles.csv")
+    print(f"Loaded {len(rows)} vehicle rows from CSV")
 
-    # 🔹 collect per-vehicle payloads here
+    # collect per-vehicle payloads here (IMPORTANT: outside the loop)
     all_vehicle_payloads: List[Dict[str, Any]] = []
 
     for row in rows:
@@ -544,10 +545,11 @@ def main():
             json.dump(payload, f, indent=2)
         print(f"  Wrote {out_name}")
 
-        # 🔹 NEW: collect payload instead of posting per vehicle
+        # collect payload instead of posting per vehicle
         all_vehicle_payloads.append(payload)
+        print(f"  Collected payloads so far: {len(all_vehicle_payloads)}")
 
-    # 🔹 After processing all vehicles, send a single aggregated snapshot to the API
+    # After processing all vehicles, send a single aggregated snapshot to the API
     if not all_vehicle_payloads:
         print("\nNo vehicles produced results; nothing to POST.")
         return
@@ -558,7 +560,13 @@ def main():
         "vehicles": all_vehicle_payloads,
     }
 
-    print(f"\nPosting aggregated snapshot with {len(all_vehicle_payloads)} vehicles to API...")
+    print(
+        f"\nPosting aggregated snapshot with {len(all_vehicle_payloads)} "
+        f"vehicles to API..."
+    )
+    # Optional: log the vehicle names for sanity
+    print("  Vehicles in snapshot:", [v["vehicle_name"] for v in all_vehicle_payloads])
+
     try:
         post_to_market_api(snapshot)
     except Exception:
