@@ -397,21 +397,30 @@ class ClassicComScraper(BaseScraper):
                 except Exception:
                     continue
 
+                # --- location (more robust) ---
                 location = None
                 try:
-                    loc_el = card.query_selector("a:has-text(',')")
-                    if loc_el:
-                        location = (loc_el.inner_text() or "").strip()
+                    anchors = card.query_selector_all("a")
+                    for a in anchors:
+                        txt = (a.inner_text() or "").strip()
+                        # Heuristic: must contain a comma and at least one letter,
+                        # e.g. "Los Angeles, CA" or "London, UK"
+                        if "," in txt and any(c.isalpha() for c in txt):
+                            location = txt
+                            break
                 except Exception:
                     pass
 
+                # --- link (only classic.com URLs) ---
                 link = None
                 try:
-                    a = card.query_selector("a[href*='/listing/'], a[href*='/auction/']")
-                    if a:
-                        href = a.get_attribute("href")
-                        if href and href.startswith("http"):
+                    anchors = card.query_selector_all("a")
+                    for a in anchors:
+                        href = a.get_attribute("href") or ""
+                        # Only take Classic.com listing/auction URLs, not external ones
+                        if "classic.com" in href and ("/listing/" in href or "/auction/" in href):
                             link = href
+                            break
                 except Exception:
                     pass
 
