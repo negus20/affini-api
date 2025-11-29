@@ -73,6 +73,9 @@ def _parse_date_iso(d: str) -> date:
 
 
 def filter_last_n_years(sales: List[SaleRecord], years: int) -> List[SaleRecord]:
+    """
+    Keep only sales within the last N years and never keep future-dated sales.
+    """
     today = datetime.utcnow().date()
     cutoff = today - timedelta(days=years * 365)  # approximate is fine
     result: List[SaleRecord] = []
@@ -80,6 +83,9 @@ def filter_last_n_years(sales: List[SaleRecord], years: int) -> List[SaleRecord]
         try:
             sd = _parse_date_iso(s.sale_date)
         except ValueError:
+            continue
+        # drop any future dates defensively
+        if sd > today:
             continue
         if sd >= cutoff:
             result.append(s)
@@ -209,9 +215,28 @@ BAT_PRICE_RE = re.compile(
 
 
 def _parse_bat_date(us_short: str) -> str:
-    """Convert MM/DD/YY → YYYY-MM-DD."""
+    """
+    Convert MM/DD/YY → YYYY-MM-DD using a sliding window so we don't create
+    future years like 2026 when we're still in 2025.
+
+    Rule:
+      - If YY <= current two-digit year → treat as this century (20xx)
+      - If YY >  current two-digit year → treat as previous century (19xx)
+    """
     m, d, yy = (int(part) for part in us_short.split("/"))
-    year = 2000 + yy if yy < 70 else 1900 + yy
+
+    today = datetime.utcnow().date()
+    current_year = today.year                       # e.g. 2025
+    current_century = (current_year // 100) * 100   # e.g. 2000
+    current_two_digit = current_year % 100          # e.g. 25
+
+    if yy <= current_two_digit:
+        # same century (e.g. 00–25 → 2000–2025)
+        year = current_century + yy
+    else:
+        # previous century (e.g. 26–99 → 1926–1999)
+        year = (current_century - 100) + yy
+
     return date(year, m, d).isoformat()
 
 
