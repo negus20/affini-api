@@ -480,6 +480,9 @@ def main():
 
     rows = load_vehicles_from_csv("vehicles.csv")
 
+    # 🔹 collect per-vehicle payloads here
+    all_vehicle_payloads: List[Dict[str, Any]] = []
+
     for row in rows:
         vehicle = VehicleQuery(
             name=row["name"],
@@ -534,19 +537,33 @@ def main():
 
         payload = build_vehicle_market_json(vehicle, all_sales)
 
-        # Local JSON for debugging
+        # Local JSON for debugging (keep this per-vehicle)
         safe_name = vehicle.name.replace(" ", "_").replace("/", "-")
         out_name = f"out_{vehicle.year}_{safe_name}.json"
         with open(out_name, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
         print(f"  Wrote {out_name}")
 
-        # Push to your API (if MARKET_API_URL is set)
-        try:
-            post_to_market_api(payload)
-        except Exception:
-            # Already logged inside helper
-            pass
+        # 🔹 NEW: collect payload instead of posting per vehicle
+        all_vehicle_payloads.append(payload)
+
+    # 🔹 After processing all vehicles, send a single aggregated snapshot to the API
+    if not all_vehicle_payloads:
+        print("\nNo vehicles produced results; nothing to POST.")
+        return
+
+    snapshot: Dict[str, Any] = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "vehicle_count": len(all_vehicle_payloads),
+        "vehicles": all_vehicle_payloads,
+    }
+
+    print(f"\nPosting aggregated snapshot with {len(all_vehicle_payloads)} vehicles to API...")
+    try:
+        post_to_market_api(snapshot)
+    except Exception:
+        # errors already logged in post_to_market_api
+        pass
 
 
 if __name__ == "__main__":
